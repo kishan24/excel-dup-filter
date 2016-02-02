@@ -7,10 +7,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -19,6 +23,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 public class Main {
 
 	public static void main(String[] args) {
+		args = new String[]{"test data.xlsx"};
 		if(args.length < 1) {
 			printHelp();
 		}
@@ -102,7 +107,10 @@ public class Main {
 	
 	private static Collection<MyRow> readExcel(InputStream is, int sheetNo, boolean isHeaderRow) {
 		int rowNum = 0;
-		Map<String, MyRow> myrows = new LinkedHashMap<String, MyRow>();
+//		Map<String, MyRow> myrows = new LinkedHashMap<String, MyRow>();
+		Map<String, Set<String>> emailGroups = new HashMap<String, Set<String>>();
+		List<MyRow> myrows = new ArrayList<MyRow>();
+		List<MyRow> rowsToReturn = new ArrayList<MyRow>();
 		try {
 			XSSFWorkbook workbook = new XSSFWorkbook(is);
 			XSSFSheet sheet = workbook.getSheetAt(sheetNo);
@@ -115,16 +123,32 @@ public class Main {
 				Row row = rowIterator.next();
 				rowNum = row.getRowNum();
 				String email = row.getCell(2).getStringCellValue();
-				if(!myrows.containsKey(email.toLowerCase())) {
+//				if(!myrows.containsKey(email.toLowerCase())) {
 					MyRow r = new MyRow();
 					r.email = email;
 					r.fistName = row.getCell(0).getStringCellValue();
 					r.lastName = row.getCell(1).getStringCellValue();
 					r.group = row.getCell(3).getStringCellValue();
-					myrows.put(email.toLowerCase(), r);
-				}
+					myrows.add(r);
+					
+					Set<String> groups = emailGroups.get(r.email);
+					if(groups == null) {
+						groups = new HashSet<String>();
+						emailGroups.put(r.email, groups);
+					}
+					groups.add(r.group);
+//				}
 			}
 			workbook.close();
+			
+			
+			
+			for(MyRow row : myrows) {
+				Set<String> groups = emailGroups.get(row.email);
+				if(groups == null || groups.size() <= 1 || ( groups.size() > 1 && !groups.contains("Non Procuring Realtor"))) {
+					rowsToReturn.add(row);
+				}
+			}
 		} catch(Exception e) {
 			System.err.println("Error while parsing excel sheet row number "+ rowNum);
 			e.printStackTrace();
@@ -138,7 +162,7 @@ public class Main {
 			}
 		}
 		System.out.println("excel parsed total rows "+ rowNum);
-		return myrows.values();
+		return rowsToReturn;
 	}
 	
 	private static void printHelp() {
